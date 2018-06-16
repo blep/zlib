@@ -7,7 +7,8 @@ set(VERSION "1.2.11")
 
 option(ASM686 "Enable building i686 assembly implementation")
 option(AMD64 "Enable building amd64 assembly implementation")
-
+option(ZLIB_BUILD_EXAMPLES "Enable Zlib Examples" ON)
+ 
 set(INSTALL_BIN_DIR "${CMAKE_INSTALL_PREFIX}/bin" CACHE PATH "Installation directory for executables")
 set(INSTALL_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib" CACHE PATH "Installation directory for libraries")
 set(INSTALL_INC_DIR "${CMAKE_INSTALL_PREFIX}/include" CACHE PATH "Installation directory for headers")
@@ -79,11 +80,15 @@ if(NOT CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_CURRENT_BINARY_DIR)
 endif()
 
 set(ZLIB_PC ${CMAKE_CURRENT_BINARY_DIR}/zlib.pc)
+set(ZLIB_INCLUDE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include)
 configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/zlib.pc.cmakein
 		${ZLIB_PC} @ONLY)
 configure_file(	${CMAKE_CURRENT_SOURCE_DIR}/zconf.h.cmakein
-		${CMAKE_CURRENT_BINARY_DIR}/zconf.h @ONLY)
-include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_SOURCE_DIR})
+		${ZLIB_INCLUDE_DIRECTORY}/zconf.h @ONLY)
+configure_file(	${CMAKE_CURRENT_SOURCE_DIR}/zlib.h
+		${ZLIB_INCLUDE_DIRECTORY}/zlib.h @ONLY)
+#include_directories(${CMAKE_CURRENT_BINARY_DIR}/include ${CMAKE_SOURCE_DIR})
+#include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
 
 
 #============================================================================
@@ -91,8 +96,8 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_SOURCE_DIR})
 #============================================================================
 
 set(ZLIB_PUBLIC_HDRS
-    ${CMAKE_CURRENT_BINARY_DIR}/zconf.h
-    zlib.h
+    ${ZLIB_INCLUDE_DIRECTORY}/zconf.h
+    ${ZLIB_INCLUDE_DIRECTORY}/zlib.h
 )
 set(ZLIB_PRIVATE_HDRS
     crc32.h
@@ -187,6 +192,10 @@ add_library(zlib SHARED ${ZLIB_SRCS} ${ZLIB_ASMS} ${ZLIB_DLL_SRCS} ${ZLIB_PUBLIC
 add_library(zlibstatic STATIC ${ZLIB_SRCS} ${ZLIB_ASMS} ${ZLIB_PUBLIC_HDRS} ${ZLIB_PRIVATE_HDRS})
 set_target_properties(zlib PROPERTIES DEFINE_SYMBOL ZLIB_DLL)
 set_target_properties(zlib PROPERTIES SOVERSION 1)
+set_target_properties(zlib PROPERTIES LINKER_LANGUAGE C)
+set_target_properties(zlibstatic PROPERTIES LINKER_LANGUAGE C)
+target_include_directories(zlib PUBLIC ${ZLIB_INCLUDE_DIRECTORY})
+target_include_directories(zlibstatic PUBLIC ${ZLIB_INCLUDE_DIRECTORY})
 
 if(NOT CYGWIN)
     # This property causes shared libraries on Linux to have the full version
@@ -230,20 +239,22 @@ endif()
 # Example binaries
 #============================================================================
 
-add_executable(example test/example.c)
-target_link_libraries(example zlib)
-add_test(example example)
+if(ZLIB_BUILD_EXAMPLES)
+    add_executable(example test/example.c)
+    target_link_libraries(example zlib)
+    add_test(example example)
 
-add_executable(minigzip test/minigzip.c)
-target_link_libraries(minigzip zlib)
+    add_executable(minigzip test/minigzip.c)
+    target_link_libraries(minigzip zlib)
 
-if(HAVE_OFF64_T)
-    add_executable(example64 test/example.c)
-    target_link_libraries(example64 zlib)
-    set_target_properties(example64 PROPERTIES COMPILE_FLAGS "-D_FILE_OFFSET_BITS=64")
-    add_test(example64 example64)
+    if(HAVE_OFF64_T)
+        add_executable(example64 test/example.c)
+        target_link_libraries(example64 zlib)
+        set_target_properties(example64 PROPERTIES COMPILE_FLAGS "-D_FILE_OFFSET_BITS=64")
+        add_test(example64 example64)
 
-    add_executable(minigzip64 test/minigzip.c)
-    target_link_libraries(minigzip64 zlib)
-    set_target_properties(minigzip64 PROPERTIES COMPILE_FLAGS "-D_FILE_OFFSET_BITS=64")
+        add_executable(minigzip64 test/minigzip.c)
+        target_link_libraries(minigzip64 zlib)
+        set_target_properties(minigzip64 PROPERTIES COMPILE_FLAGS "-D_FILE_OFFSET_BITS=64")
+    endif()
 endif()
